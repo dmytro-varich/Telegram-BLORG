@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
+#include "blorg/discovery/discovery.h"
 
 #include <QtGui/QGuiApplication>
 #include <QtSvg/QSvgRenderer>
@@ -744,23 +745,26 @@ void BuildSecuritySection(
 		return count ? QString::number(count) : none;
 	});
 
-	builder.addButton({
-		.id = u"security/blocked"_q,
-		.title = tr::lng_settings_blocked_users(),
-		.icon = { &st::menuIconBlock },
-		.label = std::move(blockedCount),
-		.onClick = [=] {
-			showOther(BlockedPeersId());
-		},
-		.keywords = { u"blocked"_q, u"ban"_q },
-	});
+	if (BLORG::Discovery::ShowBlockedUsersSection()) {
+		builder.addButton({
+			.id = u"security/blocked"_q,
+			.title = tr::lng_settings_blocked_users(),
+			.icon = { &st::menuIconBlock },
+			.label = std::move(blockedCount),
+			.onClick = [=] {
+				showOther(BlockedPeersId());
+			},
+			.keywords = { u"blocked"_q, u"ban"_q },
+		});
 
-	builder.add([session, updateTrigger = rpl::duplicate(updateTrigger)](const WidgetContext &ctx) mutable {
-		std::move(updateTrigger) | rpl::on_next([=] {
-			session->api().blockedPeers().reload();
-		}, ctx.container->lifetime());
-		return SectionBuilder::WidgetToAdd{};
-	});
+		builder.add([session, updateTrigger = rpl::duplicate(updateTrigger)](const WidgetContext &ctx) mutable {
+			std::move(updateTrigger) | rpl::on_next([=] {
+				session->api().blockedPeers().reload();
+			}, ctx.container->lifetime());
+			return SectionBuilder::WidgetToAdd{};
+		});
+
+	}
 
 	auto websitesCount = session->api().websites().totalValue();
 	auto websitesShown = rpl::duplicate(websitesCount) | rpl::map(

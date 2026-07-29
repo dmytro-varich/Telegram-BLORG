@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 #include "styles/style_layers.h"
 #include "styles/style_premium.h"
+#include "blorg/discovery/discovery.h"
 
 namespace Api {
 
@@ -443,6 +444,26 @@ void ConfirmInviteBox(
 	const auto isChannel = invite.isChannel && !invite.isMegagroup;
 	const auto requestApprove = invite.isRequestNeeded;
 	const auto count = invite.participantsCount;
+	
+	if (!BLORG::Discovery::AllowRequestsJoin() && requestApprove) {
+        box->setNoContentMargin(true);
+        box->setWidth(st::boxWideWidth);
+        const auto content = box->verticalLayout();
+
+        Ui::AddSkip(content, st::confirmInvitePhotoTop);
+        
+        box->addRow(
+            object_ptr<Ui::FlatLabel>(
+                box,
+                QString("Entry to channels with requests is blocked"),
+                st::confirmInviteTitle),
+            style::al_top);
+
+        Ui::AddSkip(content, st::boxPadding.bottom());
+
+        box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+        return;
+    }
 
 	struct State {
 		std::shared_ptr<Data::PhotoMedia> photoMedia;

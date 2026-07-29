@@ -100,6 +100,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 #include "styles/style_window.h"
 #include "base/qt/qt_common_adapters.h"
+#include "blorg/discovery/discovery.h"
 
 #include <QtCore/QMimeData>
 #include <QtGui/QTextBlock>
@@ -3443,6 +3444,9 @@ void Widget::requestPublicPosts(bool fromStart) {
 }
 
 void Widget::requestMessages(bool fromStart) {
+	if (!BLORG::Discovery::AllowGlobalSearch()) {
+        return; 
+    }
 	if (!_searchProcess.lastId || !_searchProcess.lastPeer) {
 		fromStart = true;
 	}

@@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "base/qt/qt_common_adapters.h"
+#include "blorg/discovery/discovery.h"
 
 #include <QtCore/QMimeData>
 #include <QtCore/QStack>
@@ -833,6 +834,10 @@ InlineBotQuery ParseInlineBotQuery(
 	const auto &full = field->getTextWithTags();
 	const auto &text = full.text;
 	const auto textLength = text.size();
+	
+	if (!BLORG::Discovery::AllowInlineBots()) {
+		return result;
+	}
 
 	auto inlineUsernameStart = 1;
 	auto inlineUsernameLength = 0;

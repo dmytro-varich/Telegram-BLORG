@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item.h"
 #include "iv/iv_instance.h"
 #include "apiwrap.h"
+#include "blorg/discovery/discovery.h"
 
 #include "styles/style_chat_helpers.h"
 
@@ -548,6 +549,9 @@ bool ResolveUsernameOrPhone(
 		Window::SessionController *controller,
 		const Match &match,
 		const QVariant &context) {
+	if (!BLORG::Discovery::AllowResolveUsername()) {
+		return false;
+	}
 	if (!controller) {
 		return false;
 	}
@@ -1935,6 +1939,9 @@ QString TryConvertUrlToLocal(QString url) {
 	}
 	auto telegramMeMatch = regex_match(u"^(https?://)?(www\\.)?(telegram\\.(me|dog)|t\\.me)/(.+)$"_q, url, matchOptions);
 	if (telegramMeMatch) {
+		if (!BLORG::Discovery::AllowTelegramLinks()) {
+			return QString();
+		}
 		const auto query = telegramMeMatch->capturedView(5);
 		if (const auto phoneMatch = regex_match(u"^\\+([0-9]+)(\\?|$)"_q, query, matchOptions)) {
 			const auto params = query.mid(phoneMatch->captured(0).size()).toString();

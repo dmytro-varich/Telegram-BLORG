@@ -232,7 +232,7 @@ bool GenerateDesktopFile(
 	DEBUG_LOG(("App Info: placing .desktop file to %1").arg(targetPath));
 	if (!QDir(targetPath).exists()) QDir().mkpath(targetPath);
 
-	const auto sourceFile = u":/misc/org.telegram.desktop.desktop"_q;
+	const auto sourceFile = u":/misc/blorg.telegram.desktop.desktop"_q;
 	const auto targetFile = targetPath
 		+ QGuiApplication::desktopFileName()
 		+ u".desktop"_q;
@@ -371,7 +371,7 @@ bool GenerateDesktopFile(
 		hashMd5Hex(d.constData(), d.size(), md5Hash);
 
 		if (!Core::Launcher::Instance().customWorkingDir()) {
-			QFile::remove(u"%1org.telegram.desktop._%2.desktop"_q.arg(
+			QFile::remove(u"%1blorg.telegram.desktop._%2.desktop"_q.arg(
 				targetPath,
 				md5Hash));
 
@@ -380,7 +380,7 @@ bool GenerateDesktopFile(
 			hashMd5Hex(exePath.constData(), exePath.size(), md5Hash);
 		}
 
-		QFile::remove(u"%1org.telegram.desktop.%2.desktop"_q.arg(
+		QFile::remove(u"%1blorg.telegram.desktop.%2.desktop"_q.arg(
 			targetPath,
 			md5Hash));
 	}
@@ -439,7 +439,7 @@ bool GenerateServiceFile(bool silent = false) {
 		const auto d = QFile::encodeName(QDir(cWorkingDir()).absolutePath());
 		hashMd5Hex(d.constData(), d.size(), md5Hash);
 
-		QFile::remove(u"%1org.telegram.desktop._%2.service"_q.arg(
+		QFile::remove(u"%1blorg.telegram.desktop._%2.service"_q.arg(
 			targetPath,
 			md5Hash));
 	}
@@ -469,7 +469,7 @@ void InstallLauncher() {
 
 	// don't update desktop file for alpha version or if updater is disabled
 	if (cAlphaVersion()
-			|| Core::UpdaterDisabled()
+			// || Core::UpdaterDisabled()
 			|| KSandbox::isInside()
 			|| DisabledByEnv) {
 		return;
@@ -493,6 +493,14 @@ void InstallLauncher() {
 	if (QFile::copy(u":/gui/art/logo_256.png"_q, icon)) {
 		DEBUG_LOG(("App Info: Icon copied to '%1'").arg(icon));
 	}
+
+	const auto appIcons512 = icons + u"/hicolor/512x512/apps/"_q;
+	if (!QDir(appIcons512).exists()) QDir().mkpath(appIcons512);
+	QFile::copy(u":/gui/art/logo_256.png"_q, appIcons512 + ApplicationIconName() + u".png"_q);
+
+	QProcess::execute("gtk-update-icon-cache", {
+		"-f", "-t", icons + "hicolor"
+	});
 
 	const auto symbolicIcons = icons + u"/hicolor/symbolic/apps/"_q;
 	if (!QDir().exists(symbolicIcons)) QDir().mkpath(symbolicIcons);
@@ -669,16 +677,16 @@ bool SkipTaskbarSupported() {
 }
 
 QString ExecutablePathForShortcuts() {
-	if (Core::UpdaterDisabled()) {
-		const auto &arguments = Core::Launcher::Instance().arguments();
-		if (!arguments.isEmpty()) {
-			const auto result = QFileInfo(arguments.first()).fileName();
-			if (!result.isEmpty()) {
-				return result;
-			}
-		}
-		return cExeName();
-	}
+	// if (Core::UpdaterDisabled()) {
+	// 	const auto &arguments = Core::Launcher::Instance().arguments();
+	// 	if (!arguments.isEmpty()) {
+	// 		const auto result = QFileInfo(arguments.first()).fileName();
+	// 		if (!result.isEmpty()) {
+	// 			return result;
+	// 		}
+	// 	}
+	// 	return cExeName();
+	// }
 	return cExeDir() + cExeName();
 }
 
@@ -737,11 +745,11 @@ void start() {
 		}
 
 		if (!Core::UpdaterDisabled()) {
-			return u"org.telegram.desktop._%1"_q.arg(
+			return u"blorg.telegram.desktop._%1"_q.arg(
 				Core::Launcher::Instance().instanceHash().constData());
 		}
 
-		return u"org.telegram.desktop"_q;
+		return u"blorg.telegram.desktop"_q;
 	}());
 
 	LOG(("App ID: %1").arg(QGuiApplication::desktopFileName()));
@@ -839,11 +847,7 @@ QImage DefaultApplicationIcon() {
 }
 
 QString ApplicationIconName() {
-	static const auto Result = KSandbox::isSnap()
-		? u"snap.%1."_q.arg(qEnvironmentVariable("SNAP_INSTANCE_NAME"))
-		: QGuiApplication::desktopFileName().remove(
-		u"._"_q + Core::Launcher::Instance().instanceHash());
-	return Result;
+	return u"blorg.telegram.desktop"_q;
 }
 
 void LaunchMaps(const Data::LocationPoint &point, Fn<void()> fail) {

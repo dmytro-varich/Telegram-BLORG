@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=blorg.telegram.desktop
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/TelegramBlorg

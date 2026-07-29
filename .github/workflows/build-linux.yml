@@ -1,0 +1,96 @@
+name: Build Telegram Blorg (Linux)
+
+on:
+  push:
+    branches: [ "blorg" ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+
+      - name: Lower CMake version requirement
+        run: |
+          sed -i 's/cmake_minimum_required(VERSION [0-9.]*)/cmake_minimum_required(VERSION 3.26)/g' CMakeLists.txt
+
+      - name: Apply custom patch if present
+        run: |
+          if [ -f "blorg.patch" ]; then
+            echo "Applying blorg.patch..."
+            patch -p1 --batch -N < blorg.patch || true
+          fi
+
+      - name: Compile Telegram (Release Mode)
+        run: |
+          sudo chmod -R 777 "$PWD"
+
+          docker run --rm \
+            -v "$PWD:/usr/src/tdesktop" \
+            -e CONFIG=Release \
+            ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
+            /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+            -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} \
+            -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} \
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
+            -D DESKTOP_APP_SPECIAL_TARGET=""
+
+      - name: Cleanup permissions after Docker
+        if: always()
+        run: sudo chown -R $USER:$USER "$PWD"
+
+      - name: Verify and Package Binary
+        run: |
+          BINARY_PATH=""
+          if [ -f "out/Release/TelegramBlorg" ]; then
+            BINARY_PATH="out/Release/TelegramBlorg"
+          elif [ -f "out/Release/Telegram" ]; then
+            mv out/Release/Telegram out/Release/TelegramBlorg
+            BINARY_PATH="out/Release/TelegramBlorg"
+          elif [ -f "out/Debug/Telegram" ]; then
+            mkdir -p out/Release
+            mv out/Debug/Telegram out/Release/TelegramBlorg
+            BINARY_PATH="out/Release/TelegramBlorg"
+          fi
+
+          if [ -z "$BINARY_PATH" ] || [ ! -f "$BINARY_PATH" ]; then
+            echo "Error: TelegramBlorg binary was not created!"
+            exit 1
+          fi
+
+          chmod +x "$BINARY_PATH"
+          cd out/Release
+          tar -czvf TelegramBlorg-Linux.tar.gz TelegramBlorg
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v7.0.4-build.{0}', github.run_number) }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || format('Telegram Blorg v7.0.4 (Build {0})', github.run_number) }}
+          body: |
+            ${{ github.event.head_commit.message }}
+          draft: false
+          prerelease: false
+          files: |
+            out/Release/TelegramBlorg-Linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

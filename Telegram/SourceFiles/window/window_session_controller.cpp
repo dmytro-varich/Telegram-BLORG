@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_boxes.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_layers.h" // st::boxLabel
+#include "blorg/discovery/discovery.h"
 
 namespace Window {
 namespace {
@@ -518,6 +519,10 @@ void SessionNavigation::resolveUsername(
 		const QString &username,
 		Fn<void(not_null<PeerData*>)> done,
 		const QString &referral) {
+	if (!BLORG::Discovery::AllowMentions()) {
+        return;
+    }		
+
 	if (referral.isEmpty()) {
 		if (const auto peer = _session->data().peerByUsername(username)) {
 			done(peer);

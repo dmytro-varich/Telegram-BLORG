@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_session.h"
 #include "dialogs/ui/chat_search_in.h" // IsHashOrCashtagSearchQuery
 #include "main/main_session.h"
+#include "blorg/discovery/discovery.h"
 
 namespace Api {
 namespace {
@@ -67,6 +68,10 @@ void PeerSearch::requestPeers() {
 		MTP_string(_query),
 		MTP_int(SearchPeopleLimit)
 	)).done([=](const MTPcontacts_Found &result, mtpRequestId requestId) {
+		if (!BLORG::Discovery::AllowGlobalSearch()) {
+			return;
+		}
+
 		const auto &data = result.data();
 		_session->data().processUsers(data.vusers());
 		_session->data().processChats(data.vchats());
