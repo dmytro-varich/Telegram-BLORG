@@ -1,8 +1,8 @@
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b695d6b5d4..7cfcfbb837 100644
+index 30ddb5a167..41db7d7a63 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -99,6 +99,9 @@ nice_target_sources(Telegram ${src_loc}
+@@ -103,6 +103,9 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      ${style_files}
  
@@ -12,7 +12,7 @@ index b695d6b5d4..7cfcfbb837 100644
      api/api_attached_stickers.cpp
      api/api_attached_stickers.h
      api/api_authorizations.cpp
-@@ -2221,7 +2224,7 @@ else()
+@@ -2257,7 +2260,7 @@ else()
  endif()
  
  if (build_macstore)
@@ -21,7 +21,7 @@ index b695d6b5d4..7cfcfbb837 100644
      set(bundle_entitlements "Telegram Lite.entitlements")
      set(output_name "Telegram Lite")
      target_link_options(Telegram
-@@ -2244,7 +2247,7 @@ else()
+@@ -2280,7 +2283,7 @@ else()
          set(bundle_identifier "com.tdesktop.Telegram")
      endif()
      set(bundle_entitlements "Telegram.entitlements")
@@ -30,7 +30,7 @@ index b695d6b5d4..7cfcfbb837 100644
  endif()
  
  if (CMAKE_GENERATOR STREQUAL Xcode)
-@@ -2465,28 +2468,28 @@ endif()
+@@ -2502,28 +2505,28 @@ endif()
  
  if (LINUX AND DESKTOP_APP_USE_PACKAGED)
      include(GNUInstallDirs)
@@ -83,10 +83,10 @@ index b695d6b5d4..7cfcfbb837 100644
 +    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/blorg.telegram.desktop.metainfo.xml" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo")
  endif()
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index fda0ed1ef4..f8f077b583 100644
+index 2aac736dbc..618ecb1c99 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -66,6 +66,6 @@
+@@ -67,6 +67,6 @@
    </qresource>
    <qresource prefix="/misc">
      <file alias="default_shortcuts-custom.json">../../default_shortcuts-custom.json</file>
@@ -95,18 +95,20 @@ index fda0ed1ef4..f8f077b583 100644
    </qresource>
  </RCC>
 diff --git a/Telegram/SourceFiles/api/api_chat_invite.cpp b/Telegram/SourceFiles/api/api_chat_invite.cpp
-index b6c7af06e8..a618da53c9 100644
+index 95bd8d7687..8c96b654dd 100644
 --- a/Telegram/SourceFiles/api/api_chat_invite.cpp
 +++ b/Telegram/SourceFiles/api/api_chat_invite.cpp
-@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -44,6 +44,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_credits.h"
  #include "styles/style_info.h"
  #include "styles/style_layers.h"
- #include "styles/style_premium.h"
++#include "styles/style_premium.h"
 +#include "blorg/discovery/discovery.h"
++
  
  namespace Api {
  
-@@ -443,6 +444,26 @@ void ConfirmInviteBox(
+@@ -442,6 +445,26 @@ void ConfirmInviteBox(
  	const auto isChannel = invite.isChannel && !invite.isMegagroup;
  	const auto requestApprove = invite.isRequestNeeded;
  	const auto count = invite.participantsCount;
@@ -158,10 +160,10 @@ index 73a252ab12..b5bda994be 100644
  		_session->data().processChats(data.vchats());
 diff --git a/Telegram/SourceFiles/blorg/discovery/config.h b/Telegram/SourceFiles/blorg/discovery/config.h
 new file mode 100644
-index 0000000000..de46137586
+index 0000000000..3f0b52ff42
 --- /dev/null
 +++ b/Telegram/SourceFiles/blorg/discovery/config.h
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,13 @@
 +#pragma once
 +
 +namespace BLORG::Discovery {
@@ -172,15 +174,16 @@ index 0000000000..de46137586
 +inline constexpr bool kBlockInlineBots = true;
 +inline constexpr bool kBlockBlockedUsersSection = true;
 +inline constexpr bool kBlockRequestsJoin = true;
++inline constexpr bool kBlockForwardedMessages = true;
 +
 +}
 \ No newline at end of file
 diff --git a/Telegram/SourceFiles/blorg/discovery/discovery.cpp b/Telegram/SourceFiles/blorg/discovery/discovery.cpp
 new file mode 100644
-index 0000000000..7d1c4cac00
+index 0000000000..3c814936cd
 --- /dev/null
 +++ b/Telegram/SourceFiles/blorg/discovery/discovery.cpp
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,38 @@
 +#include <QString>
 +#include "blorg/discovery/discovery.h"
 +#include "blorg/discovery/config.h"
@@ -215,14 +218,17 @@ index 0000000000..7d1c4cac00
 +    return !kBlockRequestsJoin;
 +}
 +
++bool AllowForwardedMessages() {
++    return !kBlockForwardedMessages;
++
 +}
 \ No newline at end of file
 diff --git a/Telegram/SourceFiles/blorg/discovery/discovery.h b/Telegram/SourceFiles/blorg/discovery/discovery.h
 new file mode 100644
-index 0000000000..9a90f9dd61
+index 0000000000..356f39f25d
 --- /dev/null
 +++ b/Telegram/SourceFiles/blorg/discovery/discovery.h
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,23 @@
 +#pragma once
 +
 +#include <QString>
@@ -243,21 +249,23 @@ index 0000000000..9a90f9dd61
 +
 +bool AllowRequestsJoin();
 +
++bool AllowForwardedMessages();
++
 +}
 \ No newline at end of file
 diff --git a/Telegram/SourceFiles/chat_helpers/message_field.cpp b/Telegram/SourceFiles/chat_helpers/message_field.cpp
-index 0a09e2f861..f873e6f82d 100644
+index 0382ee6768..6ed9c73204 100644
 --- a/Telegram/SourceFiles/chat_helpers/message_field.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/message_field.cpp
-@@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "styles/style_menu_icons.h"
+@@ -58,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_premium.h"
  #include "styles/style_settings.h"
  #include "base/qt/qt_common_adapters.h"
 +#include "blorg/discovery/discovery.h"
  
  #include <QtCore/QMimeData>
  #include <QtCore/QStack>
-@@ -833,6 +834,10 @@ InlineBotQuery ParseInlineBotQuery(
+@@ -835,6 +836,10 @@ InlineBotQuery ParseInlineBotQuery(
  	const auto &full = field->getTextWithTags();
  	const auto &text = full.text;
  	const auto textLength = text.size();
@@ -269,10 +277,10 @@ index 0a09e2f861..f873e6f82d 100644
  	auto inlineUsernameStart = 1;
  	auto inlineUsernameLength = 0;
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 9be1f88a3a..765f966792 100644
+index 22fcbbdb35..ac792c8385 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -1928,7 +1928,7 @@ void Application::RegisterUrlScheme() {
+@@ -1938,7 +1938,7 @@ void Application::RegisterUrlScheme() {
  		.arguments = arguments,
  		.protocol = u"tg"_q,
  		.protocolName = u"Telegram Link"_q,
@@ -281,7 +289,7 @@ index 9be1f88a3a..765f966792 100644
  		.longAppName = QCoreApplication::applicationName(),
  		.displayAppName = AppName.utf16(),
  		.displayAppDescription = AppName.utf16(),
-@@ -1939,7 +1939,7 @@ void Application::RegisterUrlScheme() {
+@@ -1949,7 +1949,7 @@ void Application::RegisterUrlScheme() {
  		.arguments = arguments,
  		.protocol = u"tonsite"_q,
  		.protocolName = u"TonSite Link"_q,
@@ -379,7 +387,7 @@ index 976c40695c..6e2751a5f4 100644
  		cSetAutoUpdate(true);
  		const auto window = Core::IsAppLaunched()
 diff --git a/Telegram/SourceFiles/core/version.h b/Telegram/SourceFiles/core/version.h
-index 46f6b5d54b..9906b0bc0b 100644
+index 4aa6a2a239..f9424d7250 100644
 --- a/Telegram/SourceFiles/core/version.h
 +++ b/Telegram/SourceFiles/core/version.h
 @@ -20,8 +20,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -390,14 +398,14 @@ index 46f6b5d54b..9906b0bc0b 100644
 -constexpr auto AppFile = "Telegram"_cs;
 +constexpr auto AppName = "Telegram Blorg"_cs;
 +constexpr auto AppFile = "TelegramBlorg"_cs;
- constexpr auto AppVersion = 7000004;
- constexpr auto AppVersionStr = "7.0.4";
+ constexpr auto AppVersion = 7000009;
+ constexpr auto AppVersionStr = "7.0.9";
  constexpr auto AppBetaVersion = false;
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 3016c04766..a66f94a86e 100644
+index 08a51854bd..8d9d8ec947 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-@@ -100,6 +100,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "styles/style_info.h"
  #include "styles/style_window.h"
  #include "base/qt/qt_common_adapters.h"
@@ -405,7 +413,7 @@ index 3016c04766..a66f94a86e 100644
  
  #include <QtCore/QMimeData>
  #include <QtGui/QTextBlock>
-@@ -3443,6 +3444,9 @@ void Widget::requestPublicPosts(bool fromStart) {
+@@ -3452,6 +3453,9 @@ void Widget::requestPublicPosts(bool fromStart) {
  }
  
  void Widget::requestMessages(bool fromStart) {
@@ -415,6 +423,44 @@ index 3016c04766..a66f94a86e 100644
  	if (!_searchProcess.lastId || !_searchProcess.lastPeer) {
  		fromStart = true;
  	}
+diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
+index 60f51bec90..448c7d374f 100644
+--- a/Telegram/SourceFiles/history/history_item_components.cpp
++++ b/Telegram/SourceFiles/history/history_item_components.cpp
+@@ -62,6 +62,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_dialogs.h" // dialogsMiniReplyStory.
+ #include "styles/style_widgets.h"
+ 
++#include "blorg/discovery/discovery.h"
++
+ #include <QtGui/QGuiApplication>
+ 
+ namespace {
+@@ -383,13 +385,17 @@ void HistoryMessageForwarded::create(
+ 	}
+ 	text.setMarkedText(st::fwdTextStyle, phrase, kMarkupTextOptions, context);
+ 
+-	text.setLink(1, fromChannel
+-		? JumpToMessageClickHandler(originalSender, originalId)
+-		: originalSender
+-		? originalSender->openLink()
+-		: HiddenSenderInfo::ForwardClickHandler());
+-	if (via) {
+-		text.setLink(2, via->link);
++	if (Discovery.AllowForwardedMessages()) {
++		text.setLink(1, fromChannel
++			? JumpToMessageClickHandler(originalSender, originalId)
++			: originalSender
++			? originalSender->openLink()
++			: HiddenSenderInfo::ForwardClickHandler());
++		if (via) {
++			text.setLink(2, via->link);
++		}
++	} else {
++		text.setLink(1, HiddenSenderInfo::ForwardClickHandler());
+ 	}
+ }
+ 
 diff --git a/Telegram/SourceFiles/platform/linux/specific_linux.cpp b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
 index a5249ff47a..03466ba404 100644
 --- a/Telegram/SourceFiles/platform/linux/specific_linux.cpp
@@ -602,18 +648,18 @@ index 2aab5fc974..40a47d0afc 100644
  	auto websitesCount = session->api().websites().totalValue();
  	auto websitesShown = rpl::duplicate(websitesCount) | rpl::map(
 diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
-index 9654449223..1030c30992 100644
+index 6251bbcc19..a012e7e598 100644
 --- a/Telegram/SourceFiles/window/window_session_controller.cpp
 +++ b/Telegram/SourceFiles/window/window_session_controller.cpp
-@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "styles/style_boxes.h"
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_window.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_layers.h" // st::boxLabel
 +#include "blorg/discovery/discovery.h"
  
  namespace Window {
  namespace {
-@@ -518,6 +519,10 @@ void SessionNavigation::resolveUsername(
+@@ -516,6 +517,10 @@ void SessionNavigation::resolveUsername(
  		const QString &username,
  		Fn<void(not_null<PeerData*>)> done,
  		const QString &referral) {
