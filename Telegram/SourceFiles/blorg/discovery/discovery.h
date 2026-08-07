@@ -18,4 +18,6 @@ bool ShowBlockedUsersSection();
 
 bool AllowRequestsJoin();
 
+bool AllowForwardedMessages();
+
 }

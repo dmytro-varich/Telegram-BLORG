@@ -48,8 +48,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session_settings.h"
 #include "ui/basic_click_handlers.h"
 #include "window/window_session_controller.h"
-#include "styles/style_chat.h"
-#include "styles/style_iv.h"
 
 #include "rpl/filter.h"
 #include "rpl/lifetime.h"
@@ -61,10 +59,10 @@ namespace {
 
 constexpr auto kSlideshowSlideDuration = crl::time(200);
 constexpr auto kSlideshowCommitRatio = 0.3;
-constexpr auto kSlideshowInertiaDelta = 8.;
 constexpr auto kSlideshowWheelStep = 60.;
 constexpr auto kSlideshowWheelResetDelay = crl::time(300);
-constexpr auto kSlideshowMomentumWindow = crl::time(200);
+constexpr auto kSlideshowVelocityWindow = crl::time(100);
+constexpr auto kSlideshowCommitVelocity = 0.5;
 
 class IvHistoryViewDelegate final : public HistoryView::SimpleElementDelegate {
 public:
@@ -303,6 +301,16 @@ public:
 
 	[[nodiscard]] MediaActivation activationAt(QPoint point) const override;
 
+	void clickHandlerActiveChanged(
+		const ClickHandlerPtr &handler,
+		bool active) override;
+
+	void clickHandlerPressedChanged(
+		const ClickHandlerPtr &handler,
+		bool pressed) override;
+
+	void updatePressed(QPoint point) override;
+
 	[[nodiscard]] MediaBlockSelectionData selectionData() const override;
 
 	[[nodiscard]] bool hasHeavyPart() const override;
@@ -315,6 +323,9 @@ public:
 
 private:
 	[[nodiscard]] bool alive() const override;
+
+	[[nodiscard]] bool acceptsVoiceSeekHandler(
+		const ClickHandlerPtr &handler) const;
 
 	[[nodiscard]] IvHistoryViewHit resolveHit(QPoint point) const;
 
@@ -460,6 +471,28 @@ MediaActivation IvHistoryViewBlock::activationAt(QPoint point) const {
 	return resolveHit(point).activation;
 }
 
+void IvHistoryViewBlock::clickHandlerActiveChanged(
+		const ClickHandlerPtr &handler,
+		bool active) {
+	if (acceptsVoiceSeekHandler(handler)) {
+		_media->clickHandlerActiveChanged(handler, active);
+	}
+}
+
+void IvHistoryViewBlock::clickHandlerPressedChanged(
+		const ClickHandlerPtr &handler,
+		bool pressed) {
+	if (acceptsVoiceSeekHandler(handler)) {
+		_media->clickHandlerPressedChanged(handler, pressed);
+	}
+}
+
+void IvHistoryViewBlock::updatePressed(QPoint point) {
+	if (acceptsVoiceSeekHandler(ClickHandler::getPressed())) {
+		_media->updatePressed(point - _geometry.topLeft());
+	}
+}
+
 MediaBlockSelectionData IvHistoryViewBlock::selectionData() const {
 	return {
 		.copyText = _copyText,
@@ -506,6 +539,15 @@ std::vector<QRect> IvHistoryViewBlock::itemRects() const {
 			grouped->groupItemRect(i).translated(_geometry.topLeft()));
 	}
 	return result;
+}
+
+bool IvHistoryViewBlock::acceptsVoiceSeekHandler(
+		const ClickHandlerPtr &handler) const {
+	return _supported
+		&& _media
+		&& alive()
+		&& (_kind == IvHistoryViewMediaKind::Audio)
+		&& std::dynamic_pointer_cast<VoiceSeekClickHandler>(handler);
 }
 
 IvHistoryViewHit IvHistoryViewBlock::resolveHit(QPoint point) const {
@@ -795,6 +837,13 @@ private:
 	void cancelDrag();
 	bool handleMomentum(int delta);
 	void handlePhaselessScroll(int delta);
+	void registerDragSample(float64 offsetDelta);
+	[[nodiscard]] float64 takeDragVelocity();
+
+	struct DragSample {
+		crl::time time = 0;
+		float64 delta = 0.;
+	};
 
 	struct SlidePreload {
 		std::shared_ptr<::Data::PhotoMedia> photo;
@@ -859,8 +908,8 @@ private:
 	float64 _dragOffset = 0.;
 	bool _dragActive = false;
 	bool _dragReverting = false;
-	int _momentumDirection = 0;
-	crl::time _momentumSince = 0;
+	bool _momentumIgnore = false;
+	std::vector<DragSample> _dragSamples;
 	float64 _wheelAccumulated = 0.;
 	crl::time _wheelLastTime = 0;
 	int _requestedWidth = 0;
@@ -1055,8 +1104,8 @@ void IvHistoryViewSlideshowBlock::unloadHeavyPart() {
 	_dragActive = false;
 	_dragOffset = 0.;
 	_dragReverting = false;
-	_momentumDirection = 0;
-	_momentumSince = 0;
+	_momentumIgnore = false;
+	_dragSamples.clear();
 	_wheelAccumulated = 0.;
 	_wheelLastTime = 0;
 	_preloads.clear();
@@ -1218,11 +1267,13 @@ void IvHistoryViewSlideshowBlock::beginDrag() {
 	adoptTransitionOffset();
 	_dragReverting = false;
 	_dragActive = true;
-	_momentumDirection = 0;
+	_momentumIgnore = false;
+	_dragSamples.clear();
 }
 
 void IvHistoryViewSlideshowBlock::applyDragDelta(int delta) {
 	const auto width = _geometry.width();
+	registerDragSample(-delta);
 	_dragOffset = std::clamp(_dragOffset - delta, -1. * width, 1. * width);
 	applyForcedSize();
 	requestRepaint(_geometry);
@@ -1235,15 +1286,46 @@ void IvHistoryViewSlideshowBlock::finishDrag() {
 		? -1
 		: 0;
 	_dragActive = false;
+	_momentumIgnore = true;
+	const auto velocity = takeDragVelocity();
+	const auto fast = style::ConvertFloatScale(kSlideshowCommitVelocity);
+	const auto towards = velocity * direction;
 	const auto threshold = _geometry.width() * kSlideshowCommitRatio;
-	if (direction != 0 && std::abs(_dragOffset) >= threshold) {
-		_momentumDirection = 0;
+	const auto commit = (direction != 0)
+		&& ((towards >= fast)
+			|| ((std::abs(_dragOffset) >= threshold) && (towards > -fast)));
+	if (commit) {
 		commitDrag(direction);
 	} else {
-		_momentumDirection = direction;
-		_momentumSince = crl::now();
 		revertDrag();
 	}
+}
+
+void IvHistoryViewSlideshowBlock::registerDragSample(float64 offsetDelta) {
+	const auto now = crl::now();
+	while (!_dragSamples.empty()
+		&& (now - _dragSamples.front().time > kSlideshowVelocityWindow)) {
+		_dragSamples.erase(_dragSamples.begin());
+	}
+	_dragSamples.push_back({ now, offsetDelta });
+}
+
+float64 IvHistoryViewSlideshowBlock::takeDragVelocity() {
+	const auto samples = base::take(_dragSamples);
+	const auto now = crl::now();
+	auto total = 0.;
+	auto oldest = now;
+	auto count = 0;
+	for (const auto &sample : samples) {
+		if (now - sample.time > kSlideshowVelocityWindow) {
+			continue;
+		}
+		oldest = std::min(oldest, sample.time);
+		total += sample.delta;
+		++count;
+	}
+	const auto duration = now - oldest;
+	return (count < 2 || duration <= 0) ? 0. : (total / duration);
 }
 
 void IvHistoryViewSlideshowBlock::commitDrag(int direction) {
@@ -1276,33 +1358,22 @@ void IvHistoryViewSlideshowBlock::cancelDrag() {
 	_dragActive = false;
 	_dragOffset = 0.;
 	_dragReverting = false;
-	_momentumDirection = 0;
+	_momentumIgnore = false;
+	_dragSamples.clear();
 }
 
 bool IvHistoryViewSlideshowBlock::handleMomentum(int delta) {
-	if (_slideAnimation.animating()
-		&& (_transitionFrom >= 0)
-		&& !_dragReverting) {
-		return true;
-	}
 	if (_dragActive) {
-		applyDragDelta(delta);
+		// On Windows a fling delivers momentum events right away,
+		// without any ScrollEnd between the finger-driven scroll and
+		// the inertial one, so the first momentum event is the earliest
+		// sign that the fingers were lifted - decide here and ignore
+		// the rest of the fling.
+		registerDragSample(-delta);
+		finishDrag();
 		return true;
 	}
-	if (_momentumDirection != 0) {
-		const auto direction = base::take(_momentumDirection);
-		const auto inWindow = (crl::now() - _momentumSince
-			<= kSlideshowMomentumWindow);
-		const auto sameDirection = (delta * direction < 0);
-		const auto strongEnough = (std::abs(delta)
-			>= style::ConvertFloatScale(kSlideshowInertiaDelta));
-		if (inWindow && sameDirection && strongEnough) {
-			adoptTransitionOffset();
-			commitDrag(direction);
-		}
-		return true;
-	}
-	return _dragReverting;
+	return _momentumIgnore;
 }
 
 void IvHistoryViewSlideshowBlock::handlePhaselessScroll(int delta) {
