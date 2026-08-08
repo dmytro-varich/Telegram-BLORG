@@ -8,5 +8,6 @@ inline constexpr bool kBlockTelegramLinks = true;
 inline constexpr bool kBlockInlineBots = true;
 inline constexpr bool kBlockBlockedUsersSection = true;
 inline constexpr bool kBlockRequestsJoin = true;
+inline constexpr bool kBlockForwardedMessages = true;
 
 }

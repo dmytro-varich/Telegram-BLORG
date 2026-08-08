@@ -32,4 +32,9 @@ bool AllowRequestsJoin() {
     return !kBlockRequestsJoin;
 }
 
+bool AllowForwardedMessages() {
+    return !kBlockForwardedMessages;
+
+}
+
 }
