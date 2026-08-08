@@ -180,10 +180,10 @@ index 0000000000..3f0b52ff42
 \ No newline at end of file
 diff --git a/Telegram/SourceFiles/blorg/discovery/discovery.cpp b/Telegram/SourceFiles/blorg/discovery/discovery.cpp
 new file mode 100644
-index 0000000000..3c814936cd
+index 0000000000..043bba0fb3
 --- /dev/null
 +++ b/Telegram/SourceFiles/blorg/discovery/discovery.cpp
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,40 @@
 +#include <QString>
 +#include "blorg/discovery/discovery.h"
 +#include "blorg/discovery/config.h"
@@ -220,6 +220,8 @@ index 0000000000..3c814936cd
 +
 +bool AllowForwardedMessages() {
 +    return !kBlockForwardedMessages;
++
++}
 +
 +}
 \ No newline at end of file

@@ -36,3 +36,5 @@ bool AllowForwardedMessages() {
     return !kBlockForwardedMessages;
 
 }
+
+}
