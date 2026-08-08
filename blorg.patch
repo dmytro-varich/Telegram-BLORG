@@ -426,7 +426,7 @@ index 08a51854bd..8d9d8ec947 100644
  		fromStart = true;
  	}
 diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
-index 60f51bec90..448c7d374f 100644
+index 60f51bec90..460c92f705 100644
 --- a/Telegram/SourceFiles/history/history_item_components.cpp
 +++ b/Telegram/SourceFiles/history/history_item_components.cpp
 @@ -62,6 +62,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -449,7 +449,7 @@ index 60f51bec90..448c7d374f 100644
 -		: HiddenSenderInfo::ForwardClickHandler());
 -	if (via) {
 -		text.setLink(2, via->link);
-+	if (Discovery.AllowForwardedMessages()) {
++	if (BLORG::Discovery::AllowForwardedMessages()) {
 +		text.setLink(1, fromChannel
 +			? JumpToMessageClickHandler(originalSender, originalId)
 +			: originalSender

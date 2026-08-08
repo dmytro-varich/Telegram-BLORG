@@ -385,7 +385,7 @@ void HistoryMessageForwarded::create(
 	}
 	text.setMarkedText(st::fwdTextStyle, phrase, kMarkupTextOptions, context);
 
-	if (Discovery.AllowForwardedMessages()) {
+	if (BLORG::Discovery::AllowForwardedMessages()) {
 		text.setLink(1, fromChannel
 			? JumpToMessageClickHandler(originalSender, originalId)
 			: originalSender
